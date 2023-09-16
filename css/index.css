@@ -1,0 +1,16 @@
+:root {
+  margin: 0;
+  padding: 0;
+}
+
+body {
+  margin: 0;
+  padding: 0;
+}
+
+iframe {
+  background-color: red;
+  width: calc(95px * 5);
+  height: auto;
+  aspect-ratio: 1.28;
+}
