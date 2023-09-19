@@ -6,3 +6,8 @@ interface BarcodeSymbol {
     modules: string[];
     symbolGroup?: SymbolGroup;
 }
+type NumberSetA = "A";
+type NumberSetB = "B";
+type NumberSetC = "C";
+type SpaceModule = "s";
+type BarModule = "b";

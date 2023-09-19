@@ -8,6 +8,13 @@ interface BarcodeSymbol {
   symbolGroup?: SymbolGroup;
 }
 
+type NumberSetA = "A";
+type NumberSetB = "B";
+type NumberSetC = "C";
+
+type SpaceModule = "s";
+type BarModule = "b";
+
 registerPaint(
   "barcode",
   class {
@@ -17,51 +24,66 @@ registerPaint(
     // and 12 * 7 modules for the digits
     // in total 95
 
-    setA = [
-      "sss.bb.s.b",
-      "ss.bb.ss.b",
-      "ss.b.ss.bb",
-      "s.bbbb.s.b",
-      "s.b.sss.bb",
-      "s.bb.sss.b",
-      "s.b.s.bbbb",
-      "s.bbb.s.bb",
-      "s.bb.s.bbb",
-      "sss.bb.ss",
-    ];
+    readonly numberSets = {
+      A: [
+        ["sss", "bb", "s", "b"],
+        ["ss", "bb", "ss", "b"],
+        ["ss", "b", "ss", "bb"],
+        ["s", "bbbb", "s", "b"],
+        ["s", "b", "sss", "bb"],
+        ["s", "bb", "sss", "b"],
+        ["s", "b", "s", "bbbb"],
+        ["s", "bbb", "s", "bb"],
+        ["s", "bb", "s", "bbb"],
+        ["sss", "bb", "ss"],
+      ],
 
-    setB = [
-      "s.b.ss.bbb",
-      "s.bb.ss.bb",
-      "ss.bb.s.bb",
-      "s.b.ssss.b",
-      "ss.bbb.s.b",
-      "s.bbb.ss.b",
-      "ssss.b.s.b",
-      "ss.b.sss.b",
-      "sss.b.ss.b",
-      "ss.b.s.bbb",
-    ];
+      B: [
+        ["s", "b", "ss", "bbb"],
+        ["s", "bb", "ss", "bb"],
+        ["ss", "bb", "s", "bb"],
+        ["s", "b", "ssss", "b"],
+        ["ss", "bbb", "s", "b"],
+        ["s", "bbb", "ss", "b"],
+        ["ssss", "b", "s", "b"],
+        ["ss", "b", "sss", "b"],
+        ["sss", "b", "ss", "b"],
+        ["ss", "b", "s", "bbb"],
+      ],
 
-    setC = [
-      "bbb.ss.b.s",
-      "bb.ss.bb.s",
-      "bb.s.bb.ss",
-      "b.ssss.b.s",
-      "b.s.bbb.ss",
-      "b.ss.bbb.s",
-      "b.s.b.ssss",
-      "b.sss.b.ss",
-      "b.ss.b.sss",
-      "bbb.s.b.ss",
+      C: [
+        ["bbb", "ss", "b", "s"],
+        ["bb", "ss", "bb", "s"],
+        ["bb", "s", "bb", "ss"],
+        ["b", "ssss", "b", "s"],
+        ["b", "s", "bbb", "ss"],
+        ["b", "ss", "bbb", "s"],
+        ["b", "s", "b", "ssss"],
+        ["b", "sss", "b", "ss"],
+        ["b", "ss", "b", "sss"],
+        ["bbb", "s", "b", "ss"],
+      ],
+    };
+
+    readonly AorBDecisionTable: (NumberSetA | NumberSetB)[][] = [
+      ["A", "A", "A", "A", "A", "A"],
+      ["A", "A", "B", "A", "B", "B"],
+      ["A", "A", "B", "B", "A", "B"],
+      ["A", "A", "B", "B", "B", "A"],
+      ["A", "B", "A", "A", "B", "B"],
+      ["A", "B", "B", "A", "A", "B"],
+      ["A", "B", "B", "B", "A", "A"],
+      ["A", "B", "A", "B", "A", "B"],
+      ["A", "B", "A", "B", "B", "A"],
+      ["A", "B", "B", "A", "B", "A"],
     ];
 
     moduleWidth?: number = undefined;
     barcodeHeight?: number = undefined;
     barcodeFullHeight?: number = undefined;
     xPosition: number = 0;
-    normalGuard = "b.s.b";
-    centreGuard = "s.b.s.b.s";
+    normalGuard = ["b", "s", "b"];
+    centreGuard = ["s", "b", "s", "b", "s"];
     readonly numberOfModules = 95;
 
     static get inputProperties() {
@@ -91,9 +113,6 @@ registerPaint(
         .toString()
         .split("")
         .map((n: string) => Number.parseInt(n, 10));
-      if (gtin13Arr.length !== 13) {
-        throw new RangeError("Wrong length of gtin");
-      }
       console.log("gitn13arr", gtin13Arr);
 
       const symbols = this.getSymbols(gtin13Arr);
@@ -104,48 +123,49 @@ registerPaint(
     }
 
     getSymbols(gtin13Arr: number[]): BarcodeSymbol[] {
-      const symbols: BarcodeSymbol[] = [];
+      if (gtin13Arr.length !== 13) {
+        throw new RangeError("Wrong length of gtin");
+      } else {
+        const symbols: BarcodeSymbol[] = [];
 
-      gtin13Arr.shift();
+        const [additionalDigit, ...encodedDigits] = gtin13Arr;
 
-      symbols.push({
-        modules: this.parseSymbolModules(this.normalGuard),
-        symbolGroup: SymbolGroup.Guard,
-      });
-      for (let [index, digit] of gtin13Arr.entries()) {
-        if (index === 6) {
-          console.log("adding centre guard");
+        const AorB = this.AorBDecisionTable[additionalDigit];
+
+        symbols.push({
+          modules: this.normalGuard,
+          symbolGroup: SymbolGroup.Guard,
+        });
+        for (let [index, digit] of encodedDigits.entries()) {
+          if (index === 6) {
+            console.log("adding centre guard");
+            symbols.push({
+              modules: this.centreGuard,
+              symbolGroup: SymbolGroup.Guard,
+            });
+          }
           symbols.push({
-            modules: this.parseSymbolModules(this.centreGuard),
-            symbolGroup: SymbolGroup.Guard,
+            modules: this.pickSymbol(AorB, index, digit),
           });
         }
         symbols.push({
-          modules: this.parseSymbolModules(this.pickSymbol(index, digit)),
+          modules: this.normalGuard,
+          symbolGroup: SymbolGroup.Guard,
         });
+
+        return symbols;
       }
-      symbols.push({
-        modules: this.parseSymbolModules(this.normalGuard),
-        symbolGroup: SymbolGroup.Guard,
-      });
-
-      return symbols;
     }
 
-    parseSymbolModules(symbol: string): string[] {
-      return symbol.split(".");
-    }
-
-    pickSymbol(position: number, digit: number) {
-      const aOrB = this.getRandomIntInclusive(0, 1); //fake
+    pickSymbol(
+      AorB: (NumberSetA | NumberSetB)[],
+      position: number,
+      digit: number
+    ) {
       if (position < 6) {
-        if (aOrB === 0) {
-          return this.setA[digit];
-        } else {
-          return this.setB[digit];
-        }
+        return this.numberSets[AorB[position]][digit];
       } else {
-        return this.setC[digit];
+        return this.numberSets["C"][digit];
       }
     }
 
